@@ -28,6 +28,8 @@ class VisionLLMClient(private val apiKey: String) {
         private const val API_URL = "https://api.anthropic.com/v1/messages"
         private const val MODEL = "claude-opus-4-6"  // best vision understanding
         private const val MAX_TOKENS = 1024
+        private const val MAX_RETRIES = 2        // retry on transient network/server errors
+        private const val RETRY_DELAY_MS = 1500L // wait between retries
 
         private val SYSTEM_PROMPT_TEMPLATE = """
 You are an AI agent controlling an Android phone on behalf of the user.
@@ -125,28 +127,49 @@ What is the next action?
 
         Log.d(TAG, "Sending screenshot to Claude — task: $task")
 
-        return try {
-            val request = Request.Builder()
-                .url(API_URL)
-                .post(requestBody.toRequestBody("application/json".toMediaType()))
-                .addHeader("x-api-key", apiKey)
-                .addHeader("anthropic-version", "2023-06-01")
-                .addHeader("content-type", "application/json")
-                .build()
+        val request = Request.Builder()
+            .url(API_URL)
+            .post(requestBody.toRequestBody("application/json".toMediaType()))
+            .addHeader("x-api-key", apiKey)
+            .addHeader("anthropic-version", "2023-06-01")
+            .addHeader("content-type", "application/json")
+            .build()
 
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
+        // Retry loop: up to MAX_RETRIES additional attempts on transient errors
+        var lastError: String = "Unknown error"
+        repeat(MAX_RETRIES + 1) { attempt ->
+            try {
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string() ?: ""
 
-            if (!response.isSuccessful) {
-                Log.e(TAG, "API error ${response.code}: $responseBody")
-                return AgentAction.Fail("API error: ${response.code}")
+                when {
+                    response.isSuccessful -> return parseResponse(responseBody)
+
+                    response.code == 429 || response.code >= 500 -> {
+                        // Rate-limited or server error — worth retrying
+                        lastError = "API error ${response.code}"
+                        Log.w(TAG, "$lastError (attempt ${attempt + 1}/${MAX_RETRIES + 1})")
+                        if (attempt < MAX_RETRIES) Thread.sleep(RETRY_DELAY_MS)
+                    }
+
+                    else -> {
+                        // Client error (4xx other than 429) — no point retrying
+                        Log.e(TAG, "API error ${response.code}: $responseBody")
+                        return AgentAction.Fail("API error: ${response.code}")
+                    }
+                }
+            } catch (e: java.io.IOException) {
+                lastError = "Network error: ${e.message}"
+                Log.w(TAG, "$lastError (attempt ${attempt + 1}/${MAX_RETRIES + 1})")
+                if (attempt < MAX_RETRIES) Thread.sleep(RETRY_DELAY_MS)
+            } catch (e: Exception) {
+                Log.e(TAG, "Unexpected error: ${e.message}", e)
+                return AgentAction.Fail("Error: ${e.message}")
             }
-
-            parseResponse(responseBody)
-        } catch (e: Exception) {
-            Log.e(TAG, "Network error: ${e.message}", e)
-            AgentAction.Fail("Network error: ${e.message}")
         }
+
+        Log.e(TAG, "All ${ MAX_RETRIES + 1} attempts failed: $lastError")
+        return AgentAction.Fail(lastError)
     }
 
     // ── Private ───────────────────────────────────────────────────────

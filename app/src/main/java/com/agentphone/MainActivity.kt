@@ -34,6 +34,8 @@ class MainActivity : AppCompatActivity() {
         private const val PREFS_NAME = "agent_phone_prefs"
         private const val PREF_API_KEY = "api_key"
         private const val CONFIRM_TIMEOUT_MS = 60_000L
+        // Keep the log view from growing without bound — drop oldest lines when exceeded
+        private const val MAX_LOG_LINES = 200
     }
 
     // ── Permission launchers ──────────────────────────────────────────
@@ -126,6 +128,9 @@ class MainActivity : AppCompatActivity() {
     // ── Agent lifecycle ───────────────────────────────────────────────
 
     private fun startAgent() {
+        // Guard: don't start a second agent while one is already running
+        if (agentLoop?.running == true) return
+
         val task = binding.etTask.text?.toString()?.trim().orEmpty()
         if (task.isEmpty()) { toast("Enter a task"); return }
 
@@ -324,7 +329,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun log(msg: String) {
         val current = binding.tvLog.text.toString()
-        binding.tvLog.text = if (current.startsWith("Ready.")) msg else "$current\n$msg"
+        val appended = if (current.startsWith("Ready.")) msg else "$current\n$msg"
+
+        // Trim from the top once the log exceeds MAX_LOG_LINES to avoid unbounded growth
+        val lines = appended.lines()
+        val trimmed = if (lines.size > MAX_LOG_LINES) {
+            lines.takeLast(MAX_LOG_LINES).joinToString("\n")
+        } else appended
+
+        binding.tvLog.text = trimmed
         binding.scrollLog.post { binding.scrollLog.fullScroll(android.view.View.FOCUS_DOWN) }
     }
 

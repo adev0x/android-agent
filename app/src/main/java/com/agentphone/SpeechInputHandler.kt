@@ -8,6 +8,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 /**
@@ -33,6 +34,11 @@ class SpeechInputHandler(private val context: Context) {
 
     companion object {
         private const val TAG = "SpeechInput"
+
+        // Maximum time to wait for the recognizer to return a result.
+        // SpeechRecognizer can stall if the system's recognition service hangs,
+        // so we cap the total wait time to avoid blocking the caller indefinitely.
+        private const val LISTEN_TIMEOUT_MS = 10_000L
 
         // Maps SpeechRecognizer error codes to human-readable strings
         private fun errorMessage(code: Int) = when (code) {
@@ -61,11 +67,20 @@ class SpeechInputHandler(private val context: Context) {
      * @param onState    Called with status updates ("Listening...", "Processing...").
      *                   Called on the main thread.
      *
-     * @return The final transcription string, or null on failure/cancellation.
+     * @return The final transcription string, or null on failure/cancellation/timeout.
      */
     suspend fun listen(
         onPartial: (String) -> Unit = {},
         onState: (String) -> Unit = {}
+    ): String? = withTimeoutOrNull(LISTEN_TIMEOUT_MS) {
+        listenInternal(onPartial, onState)
+    }.also { result ->
+        if (result == null) Log.w(TAG, "listen() timed out after ${LISTEN_TIMEOUT_MS}ms")
+    }
+
+    private suspend fun listenInternal(
+        onPartial: (String) -> Unit,
+        onState: (String) -> Unit
     ): String? = suspendCancellableCoroutine { cont ->
 
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -136,7 +151,7 @@ class SpeechInputHandler(private val context: Context) {
         sr.startListening(intent)
 
         cont.invokeOnCancellation {
-            Log.d(TAG, "listen() cancelled — stopping recognizer")
+            Log.d(TAG, "listenInternal cancelled — stopping recognizer")
             sr.stopListening()
             sr.destroy()
             recognizer = null

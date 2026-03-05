@@ -111,7 +111,7 @@
             android:layout_weight="1"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             app:hintTextColor="#AAAAAA"
-            android:hint="Describe what to do...">
+            android:hint="e.g. Open Gmail, find the address in the last email, open it in Maps">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etTask"
@@ -120,8 +120,7 @@
                 android:textColor="#FFFFFF"
                 android:inputType="textMultiLine"
                 android:minLines="2"
-                android:maxLines="4"
-                android:text="Open Gmail, find the most recent email, extract any address, then open Google Maps with that address" />
+                android:maxLines="4" />
 
         </com.google.android.material.textfield.TextInputLayout>
 

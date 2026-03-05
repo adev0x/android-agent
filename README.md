@@ -34,7 +34,7 @@ The vision LLM sees what's on screen and decides the next action. Your phone exe
 ```
 app/src/main/java/com/agentphone/
 │
-├── MainActivity.kt              # UI — task input, log output, permission setup
+├── MainActivity.kt              # UI — task input, voice input, log, permissions
 │
 ├── ScreenCaptureService.kt      # Captures screenshots via MediaProjection API
 │   └── captureScreen() → Bitmap
@@ -44,14 +44,17 @@ app/src/main/java/com/agentphone/
 │   ├── swipe(x1, y1, x2, y2)
 │   ├── typeText(text)
 │   ├── pressBack() / pressHome()
-│   ├── findAndTap(label)         # find element by text, tap it
 │   └── getScreenTree() → String  # dump UI hierarchy for LLM context
 │
 ├── VisionLLMClient.kt           # Claude API client
-│   └── getNextAction(screenshot, task, history) → AgentAction
+│   └── getNextAction(screenshot, task, history, stuckHint) → AgentAction
 │
-└── AgentLoop.kt                 # The core perceive→think→act loop
-    └── run(task)                # suspending, runs until done/fail/stop
+├── AgentLoop.kt                 # The core perceive→think→act loop
+│   └── run(task)                # suspending, runs until done/fail/stop
+│
+├── ScreenChangeDetector.kt      # Pixel diff + perceptual hash (Phase 2)
+│
+└── SpeechInputHandler.kt        # SpeechRecognizer wrapper (Phase 3)
 ```
 
 ---
@@ -65,8 +68,8 @@ app/src/main/java/com/agentphone/
 
 ### Build
 ```bash
-git clone https://github.com/yourname/agent-phone
-cd agent-phone
+git clone https://github.com/adev0x/android-agent
+cd android-agent
 # Open in Android Studio and run on device or emulator
 ```
 
@@ -84,7 +87,7 @@ These are the only two permissions needed. No root required.
 
 1. Grant both permissions (Screen Capture + Accessibility)
 2. Enter your Anthropic API key
-3. Type a task in plain English
+3. Type a task — or tap the **mic button** to speak it
 4. Tap **Run Agent**
 5. Watch the log — the agent narrates each step
 6. For destructive actions (booking, sending), the app pauses and asks for confirmation
@@ -125,8 +128,8 @@ The LLM can output any of these actions:
 ## Phase roadmap
 
 - [x] **Phase 1** — Core loop: screen capture + vision LLM + action execution
-- [ ] **Phase 2** — Autonomous loop improvements: change detection, error recovery, retry logic
-- [ ] **Phase 3** — Voice input: speak your task instead of typing
+- [x] **Phase 2** — Autonomous loop improvements: change detection, error recovery, retry logic
+- [x] **Phase 3** — Voice input: speak your task instead of typing
 - [ ] **Phase 4** — Task planner: break complex tasks into verified sub-steps
 - [ ] **Phase 5** — On-device LLM option: run Gemma locally, zero data leaves phone
 

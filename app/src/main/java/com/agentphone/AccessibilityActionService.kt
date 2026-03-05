@@ -153,7 +153,11 @@ class AccessibilityActionService : AccessibilityService() {
         val sb = StringBuilder()
         dumpNode(root, sb, 0)
         root.recycle()
-        return sb.toString().take(4000)
+        val full = sb.toString()
+        if (full.length > 4000) {
+            Log.w(TAG, "Screen tree truncated: ${full.length} → 4000 chars")
+        }
+        return full.take(4000)
     }
 
     // ── Private helpers ───────────────────────────────────────────────
