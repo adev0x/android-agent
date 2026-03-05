@@ -144,3 +144,24 @@ Replace the API call in `VisionLLMClient.getNextAction()`. The rest of the syste
 
 **Add on-device inference:**
 Replace `VisionLLMClient` with a local model runner (e.g. MediaPipe LLM Inference API with PaliGemma). The interface stays the same: `(Bitmap, String, List<String>, String?) → AgentAction`.
+
+## Phase 3: Voice input
+
+`SpeechInputHandler` wraps Android's `SpeechRecognizer` into a single suspend function:
+
+```kotlin
+val text: String? = speechHandler.listen(
+    onPartial = { partial -> /* update task field */ },
+    onState   = { state   -> /* "Listening...", "Processing..." */ }
+)
+```
+
+**Threading:** `SpeechRecognizer` requires the main thread. `listen()` is a suspend function called from a `Dispatchers.Main` coroutine in `MainActivity`. Partial results update the task `EditText` in real time as the user speaks.
+
+**Permission flow:** `RECORD_AUDIO` is declared in the manifest. At runtime, `MainActivity` checks with `ContextCompat.checkSelfPermission`, shows a rationale dialog if needed, then calls `micPermissionLauncher.launch()`. The permission is only requested when the user taps the mic button — never at startup.
+
+**Mic button states:**
+- Grey (`#AAAAAA`) — idle, tap to start listening
+- Red (`#E53935`) — actively recording, tap to stop early
+
+**Error handling:** `SpeechRecognizer` error codes are mapped to human-readable messages. `ERROR_NO_MATCH` and `ERROR_SPEECH_TIMEOUT` are non-fatal — the handler returns `null` and the user can try again. The task field retains its last value so the user can edit it.

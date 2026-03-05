@@ -4,9 +4,8 @@ Contributions are welcome. Here's how to get involved.
 
 ## What's most useful right now
 
-Phase 1 (core loop) and Phase 2 (change detection, retry logic, stuck detection) are done. The highest-value contributions are:
+Phases 1–3 (core loop, change detection, voice input) are done. The highest-value contributions are:
 
-- **Voice input** — SpeechRecognizer integration so you can speak tasks instead of typing
 - **Task planner** — break complex multi-app tasks into verified sub-steps before executing
 - **On-device LLM** — replace the Anthropic API call with a local model (Gemma 3, PaliGemma)
 - **App-specific handlers** — optimized flows for Gmail, Maps, WhatsApp that skip the vision loop when the accessibility tree is sufficient
@@ -31,6 +30,8 @@ app/src/main/java/com/agentphone/
 ├── AccessibilityActionService.kt # tap / swipe / type / press
 ├── VisionLLMClient.kt            # Claude API — screenshot → action
 ├── AgentLoop.kt                  # perceive → think → act loop
+├── ScreenChangeDetector.kt       # before/after screenshot diffing (Phase 2)
+├── SpeechInputHandler.kt         # SpeechRecognizer wrapper (Phase 3)
 └── MainActivity.kt               # UI
 ```
 
@@ -49,4 +50,4 @@ Bug reports and feature requests are welcome. For bugs, include:
 - Android version and device model
 - What task you gave the agent
 - What happened vs what you expected
-- Logcat output from `AgentPhone` / `AgentLoop` / `VisionLLMClient` / `A11yAction` tags
+- Logcat output from `AgentPhone` / `AgentLoop` / `VisionLLMClient` / `A11yAction` / `SpeechInput` tags

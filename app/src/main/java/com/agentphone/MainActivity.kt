@@ -1,18 +1,23 @@
 package com.agentphone
 
+import android.Manifest
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.agentphone.databinding.ActivityMainBinding
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
@@ -21,13 +26,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var agentLoop: AgentLoop? = null
 
+    // Phase 3: voice input
+    private var speechHandler: SpeechInputHandler? = null
+    private var isListening = false
+
     companion object {
         private const val PREFS_NAME = "agent_phone_prefs"
         private const val PREF_API_KEY = "api_key"
-        private const val CONFIRM_TIMEOUT_MS = 60_000L  // 60s to respond to confirm dialog
+        private const val CONFIRM_TIMEOUT_MS = 60_000L
     }
 
-    // ── Screen capture permission (modern API) ────────────────────────
+    // ── Permission launchers ──────────────────────────────────────────
+
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -44,6 +54,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Phase 3: RECORD_AUDIO runtime permission request
+    private val micPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            log("✓ Microphone permission granted")
+            startListening()
+        } else {
+            toast("Microphone permission needed for voice input")
+        }
+    }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -57,6 +81,12 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateStatus()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        speechHandler?.destroy()
+        speechHandler = null
     }
 
     // ── Button wiring ─────────────────────────────────────────────────
@@ -81,6 +111,15 @@ class MainActivity : AppCompatActivity() {
         binding.btnStop.setOnClickListener {
             agentLoop?.stop()
             setRunning(false)
+        }
+
+        // Phase 3: mic button
+        binding.btnMic.setOnClickListener {
+            if (isListening) {
+                stopListening()
+            } else {
+                requestMicAndListen()
+            }
         }
     }
 
@@ -132,10 +171,93 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ── Phase 3: Voice input ──────────────────────────────────────────
+
+    /**
+     * Check RECORD_AUDIO permission; if not yet granted, request it.
+     * Once granted, starts the listen flow.
+     */
+    private fun requestMicAndListen() {
+        when {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                    == PackageManager.PERMISSION_GRANTED -> startListening()
+
+            shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) -> {
+                AlertDialog.Builder(this)
+                    .setTitle("Microphone access")
+                    .setMessage("Agent Phone uses the microphone to let you speak your tasks instead of typing.")
+                    .setPositiveButton("Grant") { _, _ ->
+                        micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+
+            else -> micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    /**
+     * Start listening for a spoken task.
+     * Updates the mic button appearance while listening.
+     * On success, fills the task field with the transcription.
+     */
+    private fun startListening() {
+        if (isListening) return
+        isListening = true
+        setMicActive(true)
+        log("🎤 Listening...")
+
+        if (speechHandler == null) {
+            speechHandler = SpeechInputHandler(this)
+        }
+
+        lifecycleScope.launch(Dispatchers.Main) {
+            val result = speechHandler!!.listen(
+                onPartial = { partial ->
+                    // Show partial transcription in the task field as feedback
+                    binding.etTask.setText(partial)
+                    binding.etTask.setSelection(partial.length)
+                },
+                onState = { state -> log("🎤 $state") }
+            )
+
+            isListening = false
+            setMicActive(false)
+
+            if (result != null) {
+                binding.etTask.setText(result)
+                binding.etTask.setSelection(result.length)
+                log("🎤 Heard: \"$result\"")
+            } else {
+                log("🎤 No speech detected — try again")
+            }
+        }
+    }
+
+    /**
+     * Stop an active listening session early.
+     */
+    private fun stopListening() {
+        speechHandler?.stop()
+        isListening = false
+        setMicActive(false)
+        log("🎤 Stopped")
+    }
+
+    /**
+     * Toggle mic button appearance: active (red tint) vs idle (grey tint).
+     */
+    private fun setMicActive(active: Boolean) {
+        binding.btnMic.setColorFilter(
+            if (active) 0xFFE53935.toInt()   // red — recording
+            else        0xFFAAAAAA.toInt()    // grey — idle
+        )
+    }
+
     // ── Confirmation dialog (suspend, with timeout) ───────────────────
 
     private suspend fun showConfirmDialog(message: String): Boolean {
-        // If user doesn't respond within CONFIRM_TIMEOUT_MS, auto-cancel
         return withTimeoutOrNull(CONFIRM_TIMEOUT_MS) {
             suspendCancellableCoroutine { cont ->
                 val dialog = AlertDialog.Builder(this@MainActivity)
@@ -154,7 +276,7 @@ class MainActivity : AppCompatActivity() {
 
                 cont.invokeOnCancellation { dialog.dismiss() }
             }
-        } ?: false  // timeout → treat as cancelled
+        } ?: false
     }
 
     // ── UI helpers ────────────────────────────────────────────────────
@@ -196,6 +318,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnStop.isEnabled = running
         binding.etTask.isEnabled = !running
         binding.etApiKey.isEnabled = !running
+        binding.btnMic.isEnabled = !running
         updateStatus()
     }
 

@@ -92,29 +92,51 @@
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginTop="24dp" />
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/tilTask"
+    <!-- Task text field + mic button row -->
+    <LinearLayout
+        android:id="@+id/layoutTask"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-        app:hintTextColor="#AAAAAA"
-        android:hint="Describe what to do..."
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         app:layout_constraintTop_toBottomOf="@id/tvTaskHeader"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="8dp">
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etTask"
-            android:layout_width="match_parent"
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilTask"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFF"
-            android:inputType="textMultiLine"
-            android:minLines="2"
-            android:maxLines="4"
-            android:text="Open Gmail, find the most recent email, extract any address, then open Google Maps with that address" />
+            android:layout_weight="1"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:hintTextColor="#AAAAAA"
+            android:hint="Describe what to do...">
 
-    </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etTask"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:inputType="textMultiLine"
+                android:minLines="2"
+                android:maxLines="4"
+                android:text="Open Gmail, find the most recent email, extract any address, then open Google Maps with that address" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Microphone button — tap to speak task -->
+        <ImageButton
+            android:id="@+id/btnMic"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:src="@android:drawable/ic_btn_speak_now"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Speak task"
+            android:tint="#AAAAAA" />
+
+    </LinearLayout>
 
     <!-- API key input -->
     <com.google.android.material.textfield.TextInputLayout
@@ -125,7 +147,7 @@
         app:hintTextColor="#AAAAAA"
         app:passwordToggleEnabled="true"
         android:hint="Anthropic API key"
-        app:layout_constraintTop_toBottomOf="@id/tilTask"
+        app:layout_constraintTop_toBottomOf="@id/layoutTask"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="8dp">
