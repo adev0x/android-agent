@@ -4,10 +4,8 @@ Contributions are welcome. Here's how to get involved.
 
 ## What's most useful right now
 
-Phase 1 (core loop) is done. The highest-value contributions are for Phase 2 and beyond:
+Phase 1 (core loop) and Phase 2 (change detection, retry logic, stuck detection) are done. The highest-value contributions are:
 
-- **Change detection** — compare before/after screenshots to verify an action had effect
-- **Retry logic** — recover when a tap doesn't register or a screen doesn't load
 - **Voice input** — SpeechRecognizer integration so you can speak tasks instead of typing
 - **Task planner** — break complex multi-app tasks into verified sub-steps before executing
 - **On-device LLM** — replace the Anthropic API call with a local model (Gemma 3, PaliGemma)

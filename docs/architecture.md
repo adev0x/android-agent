@@ -69,6 +69,13 @@ Orchestrates the loop. Handles:
 - Safety limit of 30 steps per task
 - Clean stop via `stop()`
 
+**Phase 2 additions** — change detection, retry logic, stuck detection:
+
+- **`ScreenChangeDetector`** — after each tap, compares before/after screenshots using a sampled pixel grid. Returns `NONE` (action had no effect), `MINOR` (loading animation), or `SIGNIFICANT` (action worked). Lives in `ScreenChangeDetector.kt`.
+- **Retry logic** — `executeWithChangeDetection()` re-taps up to `MAX_ACTION_RETRIES` (2) times when change level is `NONE`. Waits longer on each retry (`RETRY_SETTLE_MS = 1200ms` vs `ACTION_SETTLE_MS = 700ms`).
+- **MINOR handling** — when a tap causes a loading animation (`MINOR`), waits an extra `LOADING_SETTLE_MS = 1800ms` then continues without retrying.
+- **Stuck detection** — maintains a rolling window of the last `STUCK_WINDOW` (4) perceptual screen hashes. If all are identical, a `stuckHint` warning is injected into the next LLM call, instructing it to try a different approach. `ScreenChangeDetector.perceptualHash()` uses a 64-bit difference hash; two screens are "the same" if their Hamming distance is < 10.
+
 ## Coordinate system
 
 This is the most important thing to understand when modifying the code.
@@ -120,6 +127,7 @@ User message:
   - Task description
   - Last 5 steps taken
   - Accessibility tree dump (if available)
+  - Stuck hint (if agent has been on the same screen for 4+ consecutive steps)
   - Screenshot (base64 JPEG)
 ```
 

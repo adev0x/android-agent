@@ -65,7 +65,7 @@ Task failed:
 
 ## Rules:
 - Output ONLY valid JSON. No explanation outside the JSON.
-- Coordinates are in pixels. Screen is approximately ${LLM_IMAGE_WIDTH}x${LLM_IMAGE_HEIGHT}.
+- Coordinates are in pixels matching the screenshot dimensions shown above.
 - Always include a "reason" field explaining what you're doing.
 - If you see a confirmation dialog or popup, handle it before continuing the main task.
 - Before any destructive action (booking, purchasing, sending), output {"action": "confirm", "message": "About to book UberX for $14.50 — proceed?"} to pause for user confirmation.
@@ -92,7 +92,8 @@ Task failed:
         screenshot: Bitmap,
         task: String,
         stepHistory: List<String> = emptyList(),
-        screenTree: String? = null
+        screenTree: String? = null,
+        stuckHint: String? = null
     ): AgentAction {
         // Encode image and capture its dimensions BEFORE any downscaling
         val (imageBase64, imgW, imgH) = bitmapToBase64WithDims(screenshot)
@@ -105,12 +106,14 @@ Task failed:
         val treeText = if (screenTree.isNullOrBlank()) ""
         else "\n\n## Accessibility tree (UI elements on screen):\n$screenTree"
 
+        val stuckText = if (stuckHint.isNullOrBlank()) "" else "\n\n$stuckHint"
+
         val userMessage = """
 ## Task: $task
 
 ## Steps taken so far:
 $historyText
-$treeText
+$treeText$stuckText
 
 ## Current screen:
 [screenshot attached — ${imgW}x${imgH}px]
