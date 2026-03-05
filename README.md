@@ -6,6 +6,8 @@ An Android app that acts as an autonomous personal assistant — it sees your sc
 
 No APIs. No app integrations. Works on any app by reading the screen visually, just like a human would.
 
+**Docs:** [How it works](docs/how-it-works.md) · [Setup guide](docs/setup.md) · [Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md)
+
 ---
 
 ## How it works
